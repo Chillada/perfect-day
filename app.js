@@ -1232,7 +1232,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js").catch((error) => console.warn("Service worker failed", error));
+    navigator.serviceWorker.register("service-worker.js?v=6").catch((error) => console.warn("Service worker failed", error));
   });
 }
 
