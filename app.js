@@ -1,4 +1,8 @@
 const STORAGE_KEY = "perfect-day-state-v1";
+const PERFECT_DAY_TRACK = {
+  spotifyUrl: "https://open.spotify.com/track/0WSqAyCu8g3e6ww5s9a9KC",
+  previewUrl: "https://p.scdn.co/mp3-preview/15b6a2fb249d2fbba4f2f5aea63a2979392a228e.mp3"
+};
 
 const defaultHabits = [
   { id: "meditation", name: "Meditation", frequency: "daily", type: "check", goal: 1, unit: "", enabled: true, order: 1 },
@@ -115,9 +119,12 @@ function getValue(dateKey, habitId) {
 }
 
 function setValue(dateKey, habitId, value) {
+  const wasPerfect = isPerfectDay(dateKey);
   entryFor(dateKey)[habitId] = value;
   saveState();
+  const becamePerfect = !wasPerfect && isPerfectDay(dateKey);
   render();
+  if (becamePerfect && dateKey === todayKey()) triggerCelebration();
 }
 
 function isHabitComplete(habit, dateKeys) {
@@ -747,6 +754,118 @@ function escapeHtml(value) {
 
 function escapeAttr(value) {
   return escapeHtml(value);
+}
+
+function triggerCelebration() {
+  document.querySelector(".celebration-layer")?.remove();
+  document.querySelector(".fireworks-canvas")?.remove();
+
+  const canvas = document.createElement("canvas");
+  canvas.className = "fireworks-canvas";
+  canvas.setAttribute("aria-hidden", "true");
+  document.body.append(canvas);
+
+  const layer = document.createElement("div");
+  layer.className = "celebration-layer";
+  layer.innerHTML = `
+    <div class="celebration-panel" role="dialog" aria-modal="true" aria-labelledby="celebration-title">
+      <p class="eyebrow">100% complete</p>
+      <h2 id="celebration-title">Your perfect day.</h2>
+      <p>Every daily target is done. Take the win.</p>
+      <div class="celebration-actions">
+        <a class="spotify-action" href="${PERFECT_DAY_TRACK.spotifyUrl}" target="_blank" rel="noopener">Play full song on Spotify</a>
+        <button class="secondary-action" data-close-celebration>Close</button>
+      </div>
+    </div>
+  `;
+  document.body.append(layer);
+
+  const audio = new Audio(PERFECT_DAY_TRACK.previewUrl);
+  audio.volume = 0.7;
+  audio.play().catch(() => {
+    layer.querySelector(".spotify-action").textContent = "Play My Perfect Day on Spotify";
+  });
+
+  const close = () => {
+    audio.pause();
+    layer.remove();
+    window.setTimeout(() => canvas.remove(), 400);
+  };
+  layer.querySelector("[data-close-celebration]").addEventListener("click", close);
+  layer.addEventListener("click", (event) => {
+    if (event.target === layer) close();
+  });
+
+  runFireworks(canvas);
+}
+
+function runFireworks(canvas) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    canvas.remove();
+    return;
+  }
+
+  const context = canvas.getContext("2d");
+  const colors = ["#e6b85c", "#c56b54", "#748f80", "#ffffff", "#dca6a0"];
+  const particles = [];
+  let frame = 0;
+
+  const resize = () => {
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = window.innerWidth * ratio;
+    canvas.height = window.innerHeight * ratio;
+    canvas.style.width = `${window.innerWidth}px`;
+    canvas.style.height = `${window.innerHeight}px`;
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  };
+
+  const burst = (x, y) => {
+    for (let index = 0; index < 46; index += 1) {
+      const angle = (Math.PI * 2 * index) / 46 + Math.random() * 0.18;
+      const speed = 2.2 + Math.random() * 4.4;
+      particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 2 + Math.random() * 2.6
+      });
+    }
+  };
+
+  const animate = () => {
+    frame += 1;
+    context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+    if (frame === 1) burst(window.innerWidth * 0.22, window.innerHeight * 0.28);
+    if (frame === 22) burst(window.innerWidth * 0.78, window.innerHeight * 0.24);
+    if (frame === 44) burst(window.innerWidth * 0.5, window.innerHeight * 0.14);
+
+    particles.forEach((particle) => {
+      particle.vy += 0.045;
+      particle.x += particle.vx;
+      particle.y += particle.vy;
+      particle.life -= 0.012;
+      context.globalAlpha = Math.max(0, particle.life);
+      context.fillStyle = particle.color;
+      context.beginPath();
+      context.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+      context.fill();
+    });
+
+    context.globalAlpha = 1;
+    if (frame < 150) {
+      window.requestAnimationFrame(animate);
+    } else {
+      canvas.remove();
+    }
+  };
+
+  resize();
+  window.addEventListener("resize", resize, { once: true });
+  window.requestAnimationFrame(animate);
 }
 
 if ("serviceWorker" in navigator) {
