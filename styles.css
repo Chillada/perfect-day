@@ -249,10 +249,10 @@ h2 {
 
 .score-ring .score-yin-yang img {
   position: absolute;
-  width: 193%;
+  width: 100%;
   max-width: none;
-  left: -46%;
-  top: -15%;
+  left: 0;
+  top: 0;
 }
 
 .score-ring.perfect .score-yin-yang {
