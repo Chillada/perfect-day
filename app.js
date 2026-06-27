@@ -3,6 +3,11 @@ const PERFECT_DAY_TRACK = {
   spotifyUrl: "https://open.spotify.com/track/0WSqAyCu8g3e6ww5s9a9KC",
   previewUrl: "https://p.scdn.co/mp3-preview/15b6a2fb249d2fbba4f2f5aea63a2979392a228e.mp3"
 };
+const SYNC_CONFIG = {
+  url: "https://hwjyupnbybekckearloz.supabase.co",
+  key: "sb_publishable_dtdIdtfFdTVYqkWGEVxVQA_XN2ZetBM",
+  redirectUrl: "https://chillada.github.io/perfect-day/"
+};
 
 const defaultHabits = [
   { id: "meditation", name: "Meditation", frequency: "daily", type: "check", goal: 1, unit: "", enabled: true, order: 1 },
@@ -15,6 +20,11 @@ const defaultHabits = [
 
 const state = loadState();
 let activeView = "today";
+let syncClient = null;
+let syncSession = null;
+let syncStatus = "Sign in to sync";
+let cloudSaveTimer = 0;
+let applyingCloudState = false;
 
 const icons = {
   today: '<svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3.5 9.5h17M6 5h12a2.5 2.5 0 0 1 2.5 2.5V18A2.5 2.5 0 0 1 18 20.5H6A2.5 2.5 0 0 1 3.5 18V7.5A2.5 2.5 0 0 1 6 5Z"/><path d="m8.5 14 2.1 2.1 4.9-5.2"/></svg>',
@@ -52,6 +62,7 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (!applyingCloudState && syncSession) scheduleCloudSave();
 }
 
 function todayKey(offset = 0) {
@@ -456,6 +467,8 @@ function settingsView() {
       <button class="primary-action" data-action="add-habit">${icons.plus}<span>Add target</span></button>
     </section>
 
+    ${syncSettingsMarkup()}
+
     <section class="panel">
       <div class="panel-heading">
         <h2>Targets</h2>
@@ -473,6 +486,43 @@ function settingsView() {
         <span>Import data</span>
       </label>
       <button class="danger-action" data-action="reset-data">${icons.reset}<span>Reset</span></button>
+    </section>
+  `;
+}
+
+function syncSettingsMarkup() {
+  if (syncSession) {
+    return `
+      <section class="panel sync-panel">
+        <div class="panel-heading">
+          <h2>Cloud sync</h2>
+          <span class="sync-indicator online">${escapeHtml(syncStatus)}</span>
+        </div>
+        <div class="sync-account">
+          <div>
+            <strong>${escapeHtml(syncSession.user.email || "Signed in")}</strong>
+            <p>Use this email on every device to share the same Perfect Day data.</p>
+          </div>
+          <button class="secondary-action" data-action="sync-sign-out">Sign out</button>
+        </div>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="panel sync-panel">
+      <div class="panel-heading">
+        <h2>Cloud sync</h2>
+        <span class="sync-indicator">${escapeHtml(syncStatus)}</span>
+      </div>
+      <form class="sync-form" data-sync-form>
+        <label class="field">
+          <span>Email address</span>
+          <input name="email" type="email" autocomplete="email" required placeholder="you@example.com" />
+        </label>
+        <button class="primary-action" type="submit">Send sign-in link</button>
+      </form>
+      <p class="sync-note">Sign in with the same email on your phone and laptop. No password needed.</p>
     </section>
   `;
 }
@@ -552,7 +602,13 @@ function bindView() {
     if (action === "export-data") element.addEventListener("click", exportData);
     if (action === "import-data") element.addEventListener("change", importData);
     if (action === "reset-data") element.addEventListener("click", resetData);
+    if (action === "sync-sign-out") element.addEventListener("click", signOutOfSync);
   });
+
+  const syncForm = document.querySelector("[data-sync-form]");
+  if (syncForm) {
+    syncForm.addEventListener("submit", sendSyncSignInLink);
+  }
 }
 
 let renderTimer = 0;
@@ -732,6 +788,134 @@ function resetData() {
   render();
 }
 
+async function initCloudSync() {
+  if (!window.supabase?.createClient) {
+    syncStatus = "Sync unavailable";
+    if (activeView === "settings") render();
+    return;
+  }
+
+  syncClient = window.supabase.createClient(SYNC_CONFIG.url, SYNC_CONFIG.key, {
+    auth: {
+      persistSession: true,
+      detectSessionInUrl: true,
+      flowType: "pkce"
+    }
+  });
+
+  const { data, error } = await syncClient.auth.getSession();
+  if (error) {
+    syncStatus = "Sign-in check failed";
+  } else {
+    syncSession = data.session;
+    if (syncSession) await loadCloudState();
+  }
+
+  syncClient.auth.onAuthStateChange((event, session) => {
+    syncSession = session;
+    window.setTimeout(async () => {
+      if (session && event === "SIGNED_IN") await loadCloudState();
+      if (!session) syncStatus = "Sign in to sync";
+      render();
+    }, 0);
+  });
+
+  if (activeView === "settings") render();
+}
+
+async function sendSyncSignInLink(event) {
+  event.preventDefault();
+  if (!syncClient) {
+    window.alert("Cloud sync is not available yet. Please refresh and try again.");
+    return;
+  }
+
+  const form = new FormData(event.currentTarget);
+  const email = form.get("email").toString().trim();
+  if (!email) return;
+
+  syncStatus = "Sending link...";
+  render();
+
+  const { error } = await syncClient.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: SYNC_CONFIG.redirectUrl
+    }
+  });
+
+  if (error) {
+    syncStatus = "Could not send link";
+    window.alert(error.message);
+  } else {
+    syncStatus = "Check your email";
+    window.alert("Your secure Perfect Day sign-in link has been sent.");
+  }
+  render();
+}
+
+async function signOutOfSync() {
+  if (!syncClient) return;
+  await syncClient.auth.signOut();
+  syncSession = null;
+  syncStatus = "Sign in to sync";
+  render();
+}
+
+async function loadCloudState() {
+  if (!syncClient || !syncSession) return;
+  syncStatus = "Syncing...";
+
+  const { data, error } = await syncClient
+    .from("perfect_day_state")
+    .select("data")
+    .eq("user_id", syncSession.user.id)
+    .maybeSingle();
+
+  if (error) {
+    syncStatus = "Sync failed";
+    console.warn("Perfect Day sync failed", error);
+    return;
+  }
+
+  if (data?.data?.habits && Array.isArray(data.data.habits)) {
+    applyingCloudState = true;
+    state.habits = data.data.habits;
+    state.entries = data.data.entries || {};
+    state.createdAt = data.data.createdAt || todayKey();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    applyingCloudState = false;
+    syncStatus = "Synced";
+  } else {
+    await pushCloudState();
+  }
+}
+
+function scheduleCloudSave() {
+  syncStatus = "Saving...";
+  window.clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = window.setTimeout(pushCloudState, 500);
+}
+
+async function pushCloudState() {
+  if (!syncClient || !syncSession) return;
+
+  const { error } = await syncClient.from("perfect_day_state").upsert({
+    user_id: syncSession.user.id,
+    data: state,
+    updated_at: new Date().toISOString()
+  });
+
+  if (error) {
+    syncStatus = "Save failed";
+    console.warn("Perfect Day cloud save failed", error);
+  } else {
+    syncStatus = "Synced";
+  }
+
+  if (activeView === "settings") render();
+}
+
 function weekRangeLabel() {
   const dates = weekDates();
   const first = dateFromKey(dates[0]).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -875,3 +1059,4 @@ if ("serviceWorker" in navigator) {
 }
 
 render();
+initCloudSync();
