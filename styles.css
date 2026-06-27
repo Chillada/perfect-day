@@ -1,15 +1,15 @@
 :root {
   color-scheme: light;
-  --paper: #f7f3ec;
-  --surface: #fffcf6;
+  --paper: #edf4ef;
+  --surface: #f7fbf8;
   --surface-strong: #ffffff;
-  --ink: #1f2b28;
-  --muted: #6f7771;
-  --line: #ded7cc;
-  --sage: #748f80;
-  --sage-dark: #26413c;
-  --gold: #e6b85c;
-  --coral: #c56b54;
+  --ink: #18312a;
+  --muted: #687b72;
+  --line: #cddbd2;
+  --sage: #4f8b68;
+  --sage-dark: #153f31;
+  --gold: #d8b45b;
+  --coral: #5d8f7b;
   --shadow: 0 20px 60px rgba(31, 43, 40, 0.11);
   --radius: 8px;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -24,8 +24,8 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    linear-gradient(145deg, rgba(230, 184, 92, 0.16), transparent 34%),
-    linear-gradient(215deg, rgba(116, 143, 128, 0.18), transparent 32%),
+    linear-gradient(145deg, rgba(111, 163, 130, 0.19), transparent 34%),
+    linear-gradient(215deg, rgba(205, 225, 213, 0.46), transparent 32%),
     var(--paper);
   color: var(--ink);
 }
@@ -236,6 +236,72 @@ h2 {
   display: grid;
   grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.82fr);
   gap: 18px;
+}
+
+.long-term-panel {
+  display: grid;
+  align-content: start;
+}
+
+.period-group + .period-group {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.period-heading,
+.period-number-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.period-heading {
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.period-heading span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+.period-targets {
+  display: grid;
+  gap: 10px;
+}
+
+.habit-row.compact {
+  min-height: 52px;
+}
+
+.period-number {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.period-number-title {
+  font-size: 0.9rem;
+}
+
+.inline-entry {
+  grid-template-columns: auto minmax(90px, 140px);
+  align-items: center;
+  justify-content: end;
+  margin-top: 0;
+}
+
+.habit-image {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  object-fit: cover;
 }
 
 .panel,
@@ -594,6 +660,10 @@ h2 {
   background: var(--sage-dark);
 }
 
+.toggle-line .habit-image {
+  margin-left: -2px;
+}
+
 .settings-main > span {
   display: block;
   margin: 4px 0 0 44px;
@@ -701,19 +771,6 @@ h2 {
   gap: 10px;
 }
 
-.spotify-action {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 15px;
-  border-radius: var(--radius);
-  background: var(--gold);
-  color: var(--ink);
-  font-weight: 800;
-  text-decoration: none;
-}
-
 .celebration-panel .secondary-action {
   border-color: rgba(255, 255, 255, 0.28);
   background: rgba(255, 255, 255, 0.08);
@@ -736,6 +793,28 @@ h2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.image-preview {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.image-preview img {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius);
+  object-fit: cover;
+}
+
+.image-preview label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .dialog-actions {
@@ -844,7 +923,7 @@ h2 {
     right: 0;
     bottom: 0;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 4px;
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
     border-top: 1px solid rgba(38, 65, 60, 0.14);
