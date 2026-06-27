@@ -289,7 +289,6 @@ function brandMarkup() {
       <img src="icons/perfect-day-logo.svg" alt="" />
       <div>
         <strong>Perfect Day</strong>
-        <span>Private habit tracker</span>
       </div>
     </div>
   `;
@@ -331,7 +330,9 @@ function todayView() {
         <p>${completed} of ${dailyHabits.length} daily targets complete</p>
       </div>
       <div class="score-ring ${perfect ? "perfect" : ""}" style="--score:${percent}" aria-label="${percent}% complete">
-        <span class="score-yin-yang" aria-hidden="true">☯</span>
+        <span class="score-yin-yang" aria-hidden="true">
+          <img src="icons/perfect-day-logo.svg" alt="" />
+        </span>
       </div>
     </section>
 
@@ -353,7 +354,6 @@ function todayView() {
       <div class="panel accent-panel long-term-panel">
         <div class="panel-heading">
           <h2>Longer-term targets</h2>
-          <span>All in one place</span>
         </div>
         ${longTermTargetsMarkup(dateKey)}
       </div>
@@ -1214,7 +1214,7 @@ function triggerCelebration() {
       <h2 id="celebration-title">A Perfect Day</h2>
       <div class="celebration-stats">
         <p><strong>Perfect Day number ${perfectDays}</strong></p>
-        <p>Current Streak ${streak} Days</p>
+        <p>Current Streak ${streak} ${streak === 1 ? "Day" : "Days"}</p>
       </div>
       <div class="celebration-actions">
         <button class="secondary-action" data-close-celebration>Close</button>
