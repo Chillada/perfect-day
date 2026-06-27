@@ -8,7 +8,7 @@
   "theme_color": "#f7f3ec",
   "icons": [
     {
-      "src": "icons/perfect-day-logo.svg",
+      "src": "icons/perfect-day-yin.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
