@@ -231,6 +231,28 @@ function currentStreak() {
   return count;
 }
 
+function neverMissTwiceStreak() {
+  let streak = 0;
+  let previousDayMissed = false;
+
+  knownDateRange().forEach((dateKey) => {
+    if (dateKey === todayKey() && !isPerfectDay(dateKey)) return;
+    if (isPerfectDay(dateKey)) {
+      streak += 1;
+      previousDayMissed = false;
+      return;
+    }
+    if (previousDayMissed) {
+      streak = 0;
+    } else {
+      streak += 1;
+    }
+    previousDayMissed = true;
+  });
+
+  return streak;
+}
+
 function bestStreak() {
   const allDates = knownDateRange();
   let best = 0;
@@ -536,6 +558,7 @@ function statsView() {
     </section>
 
     <section class="stat-grid secondary-stats">
+      ${statTile("Never miss twice", neverMissTwiceStreak(), "days")}
       ${statTile("Best streak", bestStreak(), "days")}
       ${statTile("Perfect days", perfectDayCount(), "total")}
       ${statTile("Tracked days", range.length, "days")}
