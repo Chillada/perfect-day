@@ -1,11 +1,10 @@
-const CACHE_NAME = "perfect-day-v4";
+const CACHE_NAME = "perfect-day-v5";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
-  "./manifest.webmanifest",
-  "./icons/perfect-day.svg"
+  "./manifest.webmanifest"
 ];
 
 self.addEventListener("install", (event) => {
