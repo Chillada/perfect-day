@@ -308,7 +308,7 @@ function render() {
 function brandMarkup() {
   return `
     <div class="brand">
-      <img src="icons/perfect-day-logo.svg" alt="" />
+      <img src="icons/perfect-day-yin.svg" alt="" />
       <div>
         <strong>Perfect Day</strong>
       </div>
@@ -353,7 +353,7 @@ function todayView() {
       </div>
       <div class="score-ring ${perfect ? "perfect" : ""}" style="--score:${percent}" aria-label="${percent}% complete">
         <span class="score-yin-yang" aria-hidden="true">
-          <img src="icons/perfect-day-logo.svg" alt="" />
+          <img src="icons/perfect-day-yin.svg" alt="" />
         </span>
       </div>
     </section>
