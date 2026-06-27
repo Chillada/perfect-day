@@ -1,8 +1,12 @@
 const STORAGE_KEY = "perfect-day-state-v1";
 const PERFECT_DAY_TRACK = {
-  spotifyUrl: "https://open.spotify.com/track/0WSqAyCu8g3e6ww5s9a9KC",
   previewUrl: "https://p.scdn.co/mp3-preview/15b6a2fb249d2fbba4f2f5aea63a2979392a228e.mp3"
 };
+const HABIT_TRACKS = {
+  sauna: "https://p.scdn.co/mp3-preview/556c25e5364d689df48965702632cfa8c5053baa.mp3",
+  walking: "https://p.scdn.co/mp3-preview/d65a71bce3857d4221fd2d81ff03cc4e7f3a025e.mp3"
+};
+const PERIOD_FREQUENCIES = ["weekly", "monthly", "halfyear", "yearly"];
 const SYNC_CONFIG = {
   url: "https://hwjyupnbybekckearloz.supabase.co",
   key: "sb_publishable_dtdIdtfFdTVYqkWGEVxVQA_XN2ZetBM",
@@ -107,6 +111,54 @@ function weekDates(dateKey = todayKey()) {
     date.setDate(start.getDate() + index);
     return toDateKey(date);
   });
+}
+
+function periodDates(frequency, dateKey = todayKey()) {
+  if (frequency === "daily") return [dateKey];
+  if (frequency === "weekly") return weekDates(dateKey);
+
+  const current = dateFromKey(dateKey);
+  let start;
+  let end;
+
+  if (frequency === "monthly") {
+    start = new Date(current.getFullYear(), current.getMonth(), 1);
+    end = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+  } else if (frequency === "halfyear") {
+    const startMonth = current.getMonth() < 6 ? 0 : 6;
+    start = new Date(current.getFullYear(), startMonth, 1);
+    end = new Date(current.getFullYear(), startMonth + 6, 0);
+  } else {
+    start = new Date(current.getFullYear(), 0, 1);
+    end = new Date(current.getFullYear(), 11, 31);
+  }
+
+  const dates = [];
+  for (const date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+    dates.push(toDateKey(date));
+  }
+  return dates;
+}
+
+function frequencyLabel(frequency) {
+  return {
+    daily: "Daily",
+    weekly: "Weekly",
+    monthly: "Monthly",
+    halfyear: "Every 6 months",
+    yearly: "Yearly"
+  }[frequency] || frequency;
+}
+
+function periodLabel(frequency, dateKey = todayKey()) {
+  const dates = periodDates(frequency, dateKey);
+  if (frequency === "weekly") return weekRangeLabel();
+  if (frequency === "monthly") {
+    return dateFromKey(dateKey).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  }
+  const first = dateFromKey(dates[0]).toLocaleDateString(undefined, { month: "short" });
+  const last = dateFromKey(dates[dates.length - 1]).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  return `${first} - ${last}`;
 }
 
 function orderedHabits(frequency) {
@@ -228,7 +280,7 @@ function render() {
 function brandMarkup() {
   return `
     <div class="brand">
-      <img src="icons/perfect-day.svg" alt="" />
+      <img src="https://github.com/user-attachments/assets/bd74692f-1966-4451-85d9-9a1f41ba82a3" alt="" />
       <div>
         <strong>Perfect Day</strong>
         <span>Private habit tracker</span>
@@ -240,7 +292,6 @@ function brandMarkup() {
 function navMarkup(prefix) {
   const items = [
     ["today", "Today"],
-    ["week", "Week"],
     ["stats", "Stats"],
     ["settings", "Settings"]
   ];
@@ -254,7 +305,6 @@ function navMarkup(prefix) {
 }
 
 function viewMarkup() {
-  if (activeView === "week") return weekView();
   if (activeView === "stats") return statsView();
   if (activeView === "settings") return settingsView();
   return todayView();
@@ -266,7 +316,6 @@ function todayView() {
   const perfect = isPerfectDay(dateKey);
   const completed = dailyHabits.filter((habit) => isHabitComplete(habit, [dateKey])).length;
   const percent = dailyHabits.length ? Math.round((completed / dailyHabits.length) * 100) : 0;
-  const stepsHabit = activeHabits("weekly").find((habit) => habit.type === "number");
 
   return `
     <section class="hero-band">
@@ -295,12 +344,12 @@ function todayView() {
         </div>
       </div>
 
-      <div class="panel accent-panel">
+      <div class="panel accent-panel long-term-panel">
         <div class="panel-heading">
-          <h2>Weekly steps</h2>
-          <span>${weekRangeLabel()}</span>
+          <h2>Longer-term targets</h2>
+          <span>All in one place</span>
         </div>
-        ${stepsHabit ? stepInputMarkup(stepsHabit, dateKey) : `<p class="empty">No active step target.</p>`}
+        ${longTermTargetsMarkup(dateKey)}
       </div>
     </section>
   `;
@@ -312,29 +361,75 @@ function dailyHabitMarkup(habit, dateKey) {
     <label class="habit-row ${checked ? "done" : ""}">
       <input type="checkbox" data-action="toggle-check" data-date="${dateKey}" data-habit="${habit.id}" ${checked ? "checked" : ""} />
       <span class="check-ui"></span>
+      ${habitImageMarkup(habit)}
       <span>${escapeHtml(habit.name)}</span>
     </label>
   `;
 }
 
-function stepInputMarkup(habit, dateKey) {
-  const dates = weekDates(dateKey);
+function longTermTargetsMarkup(dateKey) {
+  const groups = PERIOD_FREQUENCIES.map((frequency) => {
+    const habits = activeHabits(frequency);
+    if (!habits.length) return "";
+    return `
+      <div class="period-group">
+        <div class="period-heading">
+          <strong>${frequencyLabel(frequency)}</strong>
+          <span>${periodLabel(frequency, dateKey)}</span>
+        </div>
+        <div class="period-targets">
+          ${habits.map((habit) => periodHabitMarkup(habit, dateKey)).join("")}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  return groups || `<p class="empty">No active longer-term targets.</p>`;
+}
+
+function periodHabitMarkup(habit, dateKey) {
+  const dates = periodDates(habit.frequency, dateKey);
+
+  if (habit.type === "check") {
+    const doneDate = dates.find((key) => Boolean(getValue(key, habit.id))) || dateKey;
+    const checked = isHabitComplete(habit, dates);
+    return `
+      <label class="habit-row compact ${checked ? "done" : ""}">
+        <input type="checkbox" data-action="period-check" data-date="${doneDate}" data-frequency="${habit.frequency}" data-habit="${habit.id}" ${checked ? "checked" : ""} />
+        <span class="check-ui"></span>
+        ${habitImageMarkup(habit)}
+        <span>${escapeHtml(habit.name)}</span>
+      </label>
+    `;
+  }
+
   const total = dates.reduce((sum, key) => sum + Number(getValue(key, habit.id) || 0), 0);
   const percent = Math.min(100, Math.round((total / Number(habit.goal || 1)) * 100));
 
   return `
-    <div class="meter-block">
-      <div class="meter-copy">
-        <strong>${formatNumber(total)} / ${formatNumber(habit.goal)} ${escapeHtml(habit.unit || "")}</strong>
-        <span>${percent}% of weekly target</span>
+    <div class="period-number">
+      <div class="period-number-title">
+        ${habitImageMarkup(habit)}
+        <strong>${escapeHtml(habit.name)}</strong>
       </div>
-      <div class="meter"><span style="width:${percent}%"></span></div>
+      <div class="meter-block">
+        <div class="meter-copy">
+          <strong>${formatNumber(total)} / ${formatNumber(habit.goal)} ${escapeHtml(habit.unit || "")}</strong>
+          <span>${percent}%</span>
+        </div>
+        <div class="meter"><span style="width:${percent}%"></span></div>
+      </div>
+      <label class="field inline-entry">
+        <span>Today</span>
+        <input type="number" inputmode="numeric" min="0" step="100" data-action="number-entry" data-date="${dateKey}" data-habit="${habit.id}" value="${Number(getValue(dateKey, habit.id) || 0)}" />
+      </label>
     </div>
-    <label class="field">
-      <span>Today's steps</span>
-      <input type="number" inputmode="numeric" min="0" step="100" data-action="number-entry" data-date="${dateKey}" data-habit="${habit.id}" value="${Number(getValue(dateKey, habit.id) || 0)}" />
-    </label>
   `;
+}
+
+function habitImageMarkup(habit) {
+  if (!habit.image) return "";
+  return `<img class="habit-image" src="${escapeAttr(habit.image)}" alt="" />`;
 }
 
 function weekView() {
@@ -537,9 +632,10 @@ function settingsHabitMarkup(habit) {
       <div class="settings-main">
         <label class="toggle-line">
           <input type="checkbox" data-action="toggle-enabled" data-habit="${habit.id}" ${habit.enabled ? "checked" : ""} />
+          ${habitImageMarkup(habit)}
           <span>${escapeHtml(habit.name)}</span>
         </label>
-        <span>${habit.frequency} · ${habit.type === "check" ? "checkbox" : `${formatNumber(habit.goal)} ${escapeHtml(habit.unit || "")}`}</span>
+        <span>${frequencyLabel(habit.frequency)} · ${habit.type === "check" ? "checkbox" : `${formatNumber(habit.goal)} ${escapeHtml(habit.unit || "")}`}</span>
       </div>
       <div class="settings-controls">
         <button data-action="move-up" data-habit="${habit.id}" aria-label="Move ${escapeAttr(habit.name)} up" title="Move up">${icons.up}</button>
@@ -568,23 +664,33 @@ function bindView() {
       element.addEventListener("change", () => setValue(element.dataset.date, element.dataset.habit, element.checked ? 1 : 0));
     }
 
-    if (action === "weekly-check") {
+    if (action === "weekly-check" || action === "period-check") {
       element.addEventListener("change", () => {
-        const dates = weekDates();
+        const habit = findHabit(element.dataset.habit);
+        const dates = periodDates(element.dataset.frequency || habit?.frequency || "weekly");
+        const wasComplete = habit ? isHabitComplete(habit, dates) : false;
         dates.forEach((dateKey) => {
           if (getValue(dateKey, element.dataset.habit)) entryFor(dateKey)[element.dataset.habit] = 0;
         });
         if (element.checked) entryFor(todayKey())[element.dataset.habit] = 1;
         saveState();
         render();
+        if (!wasComplete && element.checked && isSaunaHabit(habit)) playPreview(HABIT_TRACKS.sauna);
       });
     }
 
     if (action === "number-entry") {
+      const habit = findHabit(element.dataset.habit);
+      let wasComplete = habit ? isHabitComplete(habit, periodDates(habit.frequency)) : false;
       const saveNumber = () => {
         const value = Math.max(0, Number(element.value || 0));
         entryFor(element.dataset.date)[element.dataset.habit] = value;
         saveState();
+        if (habit) {
+          const complete = isHabitComplete(habit, periodDates(habit.frequency));
+          if (!wasComplete && complete && isWalkingHabit(habit)) playPreview(HABIT_TRACKS.walking);
+          wasComplete = complete;
+        }
       };
       element.addEventListener("input", saveNumber);
       element.addEventListener("change", () => {
@@ -673,6 +779,9 @@ function openHabitDialog(habit = null) {
           <select name="frequency">
             <option value="daily" ${habit?.frequency === "daily" ? "selected" : ""}>Daily</option>
             <option value="weekly" ${habit?.frequency === "weekly" ? "selected" : ""}>Weekly</option>
+            <option value="monthly" ${habit?.frequency === "monthly" ? "selected" : ""}>Monthly</option>
+            <option value="halfyear" ${habit?.frequency === "halfyear" ? "selected" : ""}>Every 6 months</option>
+            <option value="yearly" ${habit?.frequency === "yearly" ? "selected" : ""}>Yearly</option>
           </select>
         </label>
         <label class="field">
@@ -693,6 +802,15 @@ function openHabitDialog(habit = null) {
           <input name="unit" maxlength="18" value="${escapeAttr(habit?.unit || "")}" />
         </label>
       </div>
+      <label class="field image-field">
+        <span>Image</span>
+        <input name="image" type="file" accept="image/*" />
+      </label>
+      ${
+        habit?.image
+          ? `<div class="image-preview"><img src="${escapeAttr(habit.image)}" alt="" /><label><input name="removeImage" type="checkbox" /> Remove image</label></div>`
+          : ""
+      }
       <menu class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
         <button value="save" class="primary-action">${isEdit ? "Save" : "Add"}</button>
@@ -703,7 +821,7 @@ function openHabitDialog(habit = null) {
   document.body.append(dialog);
   dialog.showModal();
   dialog.addEventListener("close", () => dialog.remove());
-  dialog.querySelector("form").addEventListener("submit", (event) => {
+  dialog.querySelector("form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const submitter = event.submitter?.value;
     if (submitter !== "save") {
@@ -718,8 +836,15 @@ function openHabitDialog(habit = null) {
       type: form.get("type").toString(),
       goal: Math.max(1, Number(form.get("goal") || 1)),
       unit: form.get("unit").toString().trim(),
-      enabled: habit?.enabled ?? true
+      enabled: habit?.enabled ?? true,
+      image: habit?.image || ""
     };
+
+    if (form.get("removeImage")) payload.image = "";
+    const imageFile = form.get("image");
+    if (imageFile instanceof File && imageFile.size) {
+      payload.image = await resizeHabitImage(imageFile);
+    }
 
     if (payload.type === "check") {
       payload.goal = 1;
@@ -731,7 +856,7 @@ function openHabitDialog(habit = null) {
     } else {
       state.habits.push({
         ...payload,
-      id: window.crypto?.randomUUID ? window.crypto.randomUUID() : `habit-${Date.now()}`,
+        id: window.crypto?.randomUUID ? window.crypto.randomUUID() : `habit-${Date.now()}`,
         order: Math.max(0, ...state.habits.map((item) => item.order)) + 1
       });
     }
@@ -957,7 +1082,6 @@ function triggerCelebration() {
       <h2 id="celebration-title">Your perfect day.</h2>
       <p>Every daily target is done. Take the win.</p>
       <div class="celebration-actions">
-        <a class="spotify-action" href="${PERFECT_DAY_TRACK.spotifyUrl}" target="_blank" rel="noopener">Play full song on Spotify</a>
         <button class="secondary-action" data-close-celebration>Close</button>
       </div>
     </div>
@@ -966,9 +1090,7 @@ function triggerCelebration() {
 
   const audio = new Audio(PERFECT_DAY_TRACK.previewUrl);
   audio.volume = 0.7;
-  audio.play().catch(() => {
-    layer.querySelector(".spotify-action").textContent = "Play My Perfect Day on Spotify";
-  });
+  audio.play().catch(() => {});
 
   const close = () => {
     audio.pause();
@@ -1050,6 +1172,48 @@ function runFireworks(canvas) {
   resize();
   window.addEventListener("resize", resize, { once: true });
   window.requestAnimationFrame(animate);
+}
+
+function isSaunaHabit(habit) {
+  return Boolean(habit && (habit.id === "sauna" || habit.name.toLowerCase().includes("sauna")));
+}
+
+function isWalkingHabit(habit) {
+  if (!habit) return false;
+  const text = `${habit.name} ${habit.unit || ""}`.toLowerCase();
+  return habit.id === "steps" || text.includes("step") || text.includes("walk");
+}
+
+function playPreview(url) {
+  if (!url) return;
+  const audio = new Audio(url);
+  audio.volume = 0.7;
+  audio.play().catch(() => {});
+}
+
+function resizeHabitImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read image"));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("Could not load image"));
+      image.onload = () => {
+        const maxSize = 320;
+        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/webp", 0.76));
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 if ("serviceWorker" in navigator) {
