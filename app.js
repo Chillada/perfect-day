@@ -207,6 +207,13 @@ function isPerfectDay(dateKey) {
   return habits.every((habit) => isHabitComplete(habit, [dateKey]));
 }
 
+function dailyScore(dateKey = todayKey()) {
+  const habits = activeHabits("daily");
+  if (!habits.length) return { complete: 0, total: 0, percent: 0 };
+  const complete = habits.filter((habit) => isHabitComplete(habit, [dateKey])).length;
+  return { complete, total: habits.length, percent: Math.round((complete / habits.length) * 100) };
+}
+
 function weeklyCompletion(dateKey = todayKey()) {
   const dates = weekDates(dateKey);
   const habits = activeHabits("weekly");
@@ -266,7 +273,7 @@ function render() {
       <main class="main-panel">
         <header class="topbar">
           ${brandMarkup()}
-          <div class="date-pill">${formatDate(todayKey())}</div>
+          <div class="date-pill today-score-pill">Today's Score · ${dailyScore().percent}%</div>
         </header>
         ${viewMarkup()}
       </main>
@@ -509,21 +516,28 @@ function weeklyHabitMarkup(habit, dates) {
 }
 
 function statsView() {
-  const completion = weeklyCompletion();
   const range = knownDateRange();
-  const lastSeven = Array.from({ length: 7 }, (_, index) => todayKey(index - 6));
+  const streak = currentStreak();
+  const month = monthCalendar();
 
   return `
     <section class="section-heading">
       <div>
         <p class="eyebrow">Stats</p>
-        <h1>Momentum at a glance.</h1>
+        <h1>Momentum</h1>
       </div>
-      <div class="date-pill">${completion.percent}% week</div>
     </section>
 
-    <section class="stat-grid">
-      ${statTile("Current streak", currentStreak(), "days")}
+    <section class="streak-feature">
+      <div>
+        <span>Current streak</span>
+        <strong>${streak}</strong>
+        <small>days</small>
+      </div>
+      ${streak > 7 ? `<span class="streak-fire" aria-label="Streak over seven days">🔥</span>` : ""}
+    </section>
+
+    <section class="stat-grid secondary-stats">
       ${statTile("Best streak", bestStreak(), "days")}
       ${statTile("Perfect days", perfectDayCount(), "total")}
       ${statTile("Tracked days", range.length, "days")}
@@ -531,16 +545,68 @@ function statsView() {
 
     <section class="panel">
       <div class="panel-heading">
-        <h2>Last 7 days</h2>
-        <span>${lastSeven.filter(isPerfectDay).length} perfect</span>
+        <h2>${month.label}</h2>
+        <span>${month.perfectCount} perfect days</span>
       </div>
-      <div class="history-strip">
-        ${lastSeven
-          .map((dateKey) => `<div class="history-dot ${isPerfectDay(dateKey) ? "perfect" : ""}"><span>${dateFromKey(dateKey).toLocaleDateString(undefined, { weekday: "short" })}</span><strong>${dateFromKey(dateKey).getDate()}</strong></div>`)
-          .join("")}
+      <div class="month-calendar">
+        ${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => `<span class="calendar-weekday">${day}</span>`).join("")}
+        ${Array.from({ length: month.leading }, () => `<span class="calendar-blank"></span>`).join("")}
+        ${month.dates.map(monthDayMarkup).join("")}
+      </div>
+      <div class="calendar-legend">
+        <span><i class="missed"></i>Missed</span>
+        <span><i class="mostly"></i>Mostly</span>
+        <span><i class="perfect"></i>Perfect</span>
       </div>
     </section>
   `;
+}
+
+function monthCalendar(dateKey = todayKey()) {
+  const current = dateFromKey(dateKey);
+  const first = new Date(current.getFullYear(), current.getMonth(), 1);
+  const last = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+  const dates = [];
+  for (const date = new Date(first); date <= last; date.setDate(date.getDate() + 1)) {
+    dates.push(toDateKey(date));
+  }
+  return {
+    dates,
+    leading: (first.getDay() + 6) % 7,
+    label: current.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+    perfectCount: dates.filter((key) => key <= todayKey() && isPerfectDay(key)).length
+  };
+}
+
+function dayStory(dateKey) {
+  if (dateKey > todayKey()) return { status: "future", percent: 0 };
+  const score = dailyScore(dateKey);
+  if (score.percent === 100) return { status: "perfect", percent: 100 };
+  if (score.percent >= 50) return { status: "mostly", percent: score.percent };
+  return { status: "missed", percent: score.percent };
+}
+
+function monthDayMarkup(dateKey) {
+  const story = dayStory(dateKey);
+  const date = dateFromKey(dateKey);
+  const label = `${formatDate(dateKey)}, ${story.status}, ${story.percent}% complete`;
+  return `
+    <button class="calendar-day ${story.status}" data-action="toggle-history-day" data-date="${dateKey}" aria-label="${escapeAttr(label)}" ${story.status === "future" ? "disabled" : ""}>
+      <span>${date.getDate()}</span>
+      <i></i>
+    </button>
+  `;
+}
+
+function toggleHistoryDay(dateKey) {
+  if (dateKey > todayKey()) return;
+  const habits = activeHabits("daily");
+  const makePerfect = !isPerfectDay(dateKey);
+  habits.forEach((habit) => {
+    entryFor(dateKey)[habit.id] = makePerfect ? (habit.type === "number" ? Number(habit.goal || 1) : 1) : 0;
+  });
+  saveState();
+  render();
 }
 
 function statTile(label, value, unit) {
@@ -558,7 +624,7 @@ function settingsView() {
     <section class="section-heading">
       <div>
         <p class="eyebrow">Settings</p>
-        <h1>Tune the challenge.</h1>
+        <h1>Shape your system.</h1>
       </div>
       <button class="primary-action" data-action="add-habit">${icons.plus}<span>Add target</span></button>
     </section>
@@ -567,7 +633,7 @@ function settingsView() {
 
     <section class="panel">
       <div class="panel-heading">
-        <h2>Targets</h2>
+        <h2>Success System</h2>
         <span>${state.habits.length} total</span>
       </div>
       <div class="settings-list">
@@ -710,6 +776,7 @@ function bindView() {
     if (action === "import-data") element.addEventListener("change", importData);
     if (action === "reset-data") element.addEventListener("click", resetData);
     if (action === "sync-sign-out") element.addEventListener("click", signOutOfSync);
+    if (action === "toggle-history-day") element.addEventListener("click", () => toggleHistoryDay(element.dataset.date));
   });
 
   const syncForm = document.querySelector("[data-sync-form]");
@@ -1263,7 +1330,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js?v=7").catch((error) => console.warn("Service worker failed", error));
+    navigator.serviceWorker.register("service-worker.js?v=8").catch((error) => console.warn("Service worker failed", error));
   });
 }
 
