@@ -8,9 +8,9 @@
   "theme_color": "#f7f3ec",
   "icons": [
     {
-      "src": "icons/perfect-day.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "https://github.com/user-attachments/assets/bd74692f-1966-4451-85d9-9a1f41ba82a3",
+      "sizes": "1254x1254",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]
