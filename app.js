@@ -247,9 +247,7 @@ function bestStreak() {
 }
 
 function knownDateRange() {
-  const keys = Object.keys(state.entries);
-  const start = keys.length ? keys.sort()[0] : state.createdAt;
-  const startDate = dateFromKey(start);
+  const startDate = dateFromKey(state.createdAt);
   const endDate = dateFromKey(todayKey());
   const dates = [];
   for (const date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
@@ -329,11 +327,11 @@ function todayView() {
     <section class="hero-band">
       <div>
         <p class="eyebrow">Today</p>
-        <h1>${perfect ? "Another Perfect Brick Laid." : "Keep your promise."}</h1>
+        <h1>${perfect ? "Another Brick Laid." : "Keep your promise."}</h1>
         <p>${completed} of ${dailyHabits.length} daily targets complete</p>
       </div>
       <div class="score-ring ${perfect ? "perfect" : ""}" style="--score:${percent}" aria-label="${percent}% complete">
-        <span class="score-face" aria-hidden="true">${scoreFace(percent)}</span>
+        <span class="score-yin-yang" aria-hidden="true">☯</span>
       </div>
     </section>
 
@@ -554,8 +552,8 @@ function statsView() {
         ${month.dates.map(monthDayMarkup).join("")}
       </div>
       <div class="calendar-legend">
+        <span><i class="untracked"></i>Before start</span>
         <span><i class="missed"></i>Missed</span>
-        <span><i class="mostly"></i>Mostly</span>
         <span><i class="perfect"></i>Perfect</span>
       </div>
     </section>
@@ -579,10 +577,10 @@ function monthCalendar(dateKey = todayKey()) {
 }
 
 function dayStory(dateKey) {
+  if (dateKey < state.createdAt) return { status: "untracked", percent: 0 };
   if (dateKey > todayKey()) return { status: "future", percent: 0 };
   const score = dailyScore(dateKey);
   if (score.percent === 100) return { status: "perfect", percent: 100 };
-  if (score.percent >= 50) return { status: "mostly", percent: score.percent };
   return { status: "missed", percent: score.percent };
 }
 
@@ -591,7 +589,7 @@ function monthDayMarkup(dateKey) {
   const date = dateFromKey(dateKey);
   const label = `${formatDate(dateKey)}, ${story.status}, ${story.percent}% complete`;
   return `
-    <button class="calendar-day ${story.status}" data-action="toggle-history-day" data-date="${dateKey}" aria-label="${escapeAttr(label)}" ${story.status === "future" ? "disabled" : ""}>
+    <button class="calendar-day ${story.status}" data-action="toggle-history-day" data-date="${dateKey}" aria-label="${escapeAttr(label)}" ${story.status === "future" || story.status === "untracked" ? "disabled" : ""}>
       <span>${date.getDate()}</span>
       <i></i>
     </button>
@@ -599,7 +597,7 @@ function monthDayMarkup(dateKey) {
 }
 
 function toggleHistoryDay(dateKey) {
-  if (dateKey > todayKey()) return;
+  if (dateKey < state.createdAt || dateKey > todayKey()) return;
   const habits = activeHabits("daily");
   const makePerfect = !isPerfectDay(dateKey);
   habits.forEach((habit) => {
@@ -1136,6 +1134,8 @@ function escapeAttr(value) {
 function triggerCelebration() {
   document.querySelector(".celebration-layer")?.remove();
   document.querySelector(".fireworks-canvas")?.remove();
+  const perfectDays = perfectDayCount();
+  const streak = currentStreak();
 
   const canvas = document.createElement("canvas");
   canvas.className = "fireworks-canvas";
@@ -1148,7 +1148,10 @@ function triggerCelebration() {
     <div class="celebration-panel" role="dialog" aria-modal="true" aria-labelledby="celebration-title">
       <p class="eyebrow">100% complete</p>
       <h2 id="celebration-title">A Perfect Day</h2>
-      <p>Every daily target is done. Take the win.</p>
+      <div class="celebration-stats">
+        <p><strong>Perfect Day number ${perfectDays}</strong></p>
+        <p>Current Streak ${streak} ${streak === 1 ? "Day" : "Days"}</p>
+      </div>
       <div class="celebration-actions">
         <button class="secondary-action" data-close-celebration>Close</button>
       </div>
@@ -1293,14 +1296,6 @@ function showAudioStopControl() {
 
 function hideAudioStopControl() {
   document.querySelector("[data-stop-audio]")?.remove();
-}
-
-function scoreFace(percent) {
-  if (percent >= 100) return "🤩";
-  if (percent >= 75) return "🤗";
-  if (percent >= 50) return "😄";
-  if (percent >= 25) return "🙂";
-  return "😐";
 }
 
 function resizeHabitImage(file) {
