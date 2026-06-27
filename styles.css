@@ -237,33 +237,18 @@ h2 {
 }
 
 .score-ring .score-yin-yang {
-  color: color-mix(in srgb, #f3c96c calc(var(--score) * 1%), rgba(255, 255, 255, 0.42));
+  color: rgba(255, 255, 255, 0.62);
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(3.4rem, 10vw, 5.2rem);
   line-height: 1;
-  opacity: calc(0.48 + (var(--score) * 0.0052));
-  filter: drop-shadow(0 0 calc(var(--score) * 0.08px) rgba(243, 201, 108, 0.78));
-  animation: yin-yang-progress 900ms ease-out both;
+  transition: color 300ms ease, filter 300ms ease;
 }
 
 .score-ring.perfect .score-yin-yang {
-  filter: drop-shadow(0 0 10px rgba(243, 201, 108, 0.82));
-}
-
-@keyframes yin-yang-progress {
-  from {
-    transform: rotate(0deg) scale(0.96);
-  }
-  to {
-    transform: rotate(calc(var(--score) * 3.6deg)) scale(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .score-ring .score-yin-yang {
-    animation: none;
-    transform: rotate(calc(var(--score) * 3.6deg));
-  }
+  color: #fff8df;
+  filter:
+    drop-shadow(0 0 5px rgba(243, 201, 108, 0.95))
+    drop-shadow(0 0 14px rgba(243, 201, 108, 0.76));
 }
 
 .content-grid,
@@ -751,9 +736,17 @@ h2 {
 
 .sync-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto auto;
   align-items: end;
   gap: 12px;
+}
+
+.sync-password-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 320px) auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 16px;
 }
 
 .sync-form .field {
@@ -1122,6 +1115,10 @@ h2 {
   }
 
   .sync-form {
+    grid-template-columns: 1fr;
+  }
+
+  .sync-password-form {
     grid-template-columns: 1fr;
   }
 
