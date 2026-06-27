@@ -665,6 +665,14 @@ function syncSettingsMarkup() {
           </div>
           <button class="secondary-action" data-action="sync-sign-out">Sign out</button>
         </div>
+        <form class="sync-password-form" data-sync-password-form>
+          <label class="field">
+            <span>App password</span>
+            <input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="At least 8 characters" />
+          </label>
+          <button class="secondary-action" type="submit">Set app password</button>
+        </form>
+        <p class="sync-note">Set this once, then use it to sign in from the iOS home-screen app.</p>
       </section>
     `;
   }
@@ -680,9 +688,14 @@ function syncSettingsMarkup() {
           <span>Email address</span>
           <input name="email" type="email" autocomplete="email" required placeholder="you@example.com" />
         </label>
-        <button class="primary-action" type="submit">Send sign-in link</button>
+        <label class="field">
+          <span>App password</span>
+          <input name="password" type="password" autocomplete="current-password" minlength="8" required placeholder="Your app password" />
+        </label>
+        <button class="primary-action" type="submit">Sign in</button>
+        <button class="secondary-action" type="button" data-action="sync-setup-link">Email setup link</button>
       </form>
-      <p class="sync-note">Sign in with the same email on your phone and laptop. No password needed.</p>
+      <p class="sync-note">New here or no password yet? Open the setup link, set an app password, then sign in here.</p>
     </section>
   `;
 }
@@ -774,12 +787,18 @@ function bindView() {
     if (action === "import-data") element.addEventListener("change", importData);
     if (action === "reset-data") element.addEventListener("click", resetData);
     if (action === "sync-sign-out") element.addEventListener("click", signOutOfSync);
+    if (action === "sync-setup-link") element.addEventListener("click", sendSyncSetupLink);
     if (action === "toggle-history-day") element.addEventListener("click", () => toggleHistoryDay(element.dataset.date));
   });
 
   const syncForm = document.querySelector("[data-sync-form]");
   if (syncForm) {
-    syncForm.addEventListener("submit", sendSyncSignInLink);
+    syncForm.addEventListener("submit", signInWithSyncPassword);
+  }
+
+  const syncPasswordForm = document.querySelector("[data-sync-password-form]");
+  if (syncPasswordForm) {
+    syncPasswordForm.addEventListener("submit", setSyncPassword);
   }
 }
 
@@ -1014,18 +1033,21 @@ async function initCloudSync() {
   if (activeView === "settings") render();
 }
 
-async function sendSyncSignInLink(event) {
-  event.preventDefault();
+async function sendSyncSetupLink() {
   if (!syncClient) {
     window.alert("Cloud sync is not available yet. Please refresh and try again.");
     return;
   }
 
-  const form = new FormData(event.currentTarget);
+  const formElement = document.querySelector("[data-sync-form]");
+  const form = new FormData(formElement);
   const email = form.get("email").toString().trim();
-  if (!email) return;
+  if (!email) {
+    window.alert("Enter your email address first.");
+    return;
+  }
 
-  syncStatus = "Sending link...";
+  syncStatus = "Sending setup link...";
   render();
 
   const { error } = await syncClient.auth.signInWithOtp({
@@ -1040,7 +1062,49 @@ async function sendSyncSignInLink(event) {
     window.alert(error.message);
   } else {
     syncStatus = "Check your email";
-    window.alert("Your secure Perfect Day sign-in link has been sent.");
+    window.alert("Your Perfect Day setup link has been sent. Open it, then set an app password in Settings.");
+  }
+  render();
+}
+
+async function signInWithSyncPassword(event) {
+  event.preventDefault();
+  if (!syncClient) return;
+
+  const form = new FormData(event.currentTarget);
+  const email = form.get("email").toString().trim();
+  const password = form.get("password").toString();
+
+  syncStatus = "Signing in...";
+  render();
+
+  const { error } = await syncClient.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    syncStatus = "Sign-in failed";
+    window.alert("That email or app password did not work.");
+  } else {
+    syncStatus = "Synced";
+  }
+  render();
+}
+
+async function setSyncPassword(event) {
+  event.preventDefault();
+  if (!syncClient || !syncSession) return;
+
+  const form = new FormData(event.currentTarget);
+  const password = form.get("password").toString();
+  syncStatus = "Setting password...";
+  render();
+
+  const { error } = await syncClient.auth.updateUser({ password });
+  if (error) {
+    syncStatus = "Could not set password";
+    window.alert(error.message);
+  } else {
+    syncStatus = "Password ready";
+    window.alert("Your app password is ready. You can now use it in the iOS home-screen app.");
   }
   render();
 }
