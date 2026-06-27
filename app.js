@@ -322,11 +322,11 @@ function todayView() {
     <section class="hero-band">
       <div>
         <p class="eyebrow">Today</p>
-        <h1>${perfect ? "Perfect day locked in." : "Build today's score."}</h1>
+        <h1>${perfect ? "Another Perfect Brick Laid." : "Keep your promise."}</h1>
         <p>${completed} of ${dailyHabits.length} daily targets complete</p>
       </div>
-      <div class="score-ring" style="--score:${percent}">
-        <span>${percent}%</span>
+      <div class="score-ring ${perfect ? "perfect" : ""}" style="--score:${percent}" aria-label="${percent}% complete">
+        <span class="score-face" aria-hidden="true">${scoreFace(percent)}</span>
       </div>
     </section>
 
@@ -1080,7 +1080,7 @@ function triggerCelebration() {
   layer.innerHTML = `
     <div class="celebration-panel" role="dialog" aria-modal="true" aria-labelledby="celebration-title">
       <p class="eyebrow">100% complete</p>
-      <h2 id="celebration-title">Your perfect day.</h2>
+      <h2 id="celebration-title">A Perfect Day</h2>
       <p>Every daily target is done. Take the win.</p>
       <div class="celebration-actions">
         <button class="secondary-action" data-close-celebration>Close</button>
@@ -1189,11 +1189,18 @@ function playPreview(url) {
   const audio = new Audio(url);
   audio.volume = 0.7;
   activeAudio = audio;
+  showAudioStopControl();
   audio.addEventListener("ended", () => {
-    if (activeAudio === audio) activeAudio = null;
+    if (activeAudio === audio) {
+      activeAudio = null;
+      hideAudioStopControl();
+    }
   });
   audio.play().catch(() => {
-    if (activeAudio === audio) activeAudio = null;
+    if (activeAudio === audio) {
+      activeAudio = null;
+      hideAudioStopControl();
+    }
   });
   return audio;
 }
@@ -1203,6 +1210,30 @@ function stopActiveAudio() {
   activeAudio.pause();
   activeAudio.currentTime = 0;
   activeAudio = null;
+  hideAudioStopControl();
+}
+
+function showAudioStopControl() {
+  let button = document.querySelector("[data-stop-audio]");
+  if (button) return;
+  button = document.createElement("button");
+  button.className = "audio-stop-control";
+  button.dataset.stopAudio = "";
+  button.innerHTML = `<span class="stop-symbol" aria-hidden="true"></span><span>Stop sound</span>`;
+  button.addEventListener("click", stopActiveAudio);
+  document.body.append(button);
+}
+
+function hideAudioStopControl() {
+  document.querySelector("[data-stop-audio]")?.remove();
+}
+
+function scoreFace(percent) {
+  if (percent >= 100) return "🤩";
+  if (percent >= 75) return "🤗";
+  if (percent >= 50) return "😄";
+  if (percent >= 25) return "🙂";
+  return "😐";
 }
 
 function resizeHabitImage(file) {
@@ -1232,7 +1263,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js?v=6").catch((error) => console.warn("Service worker failed", error));
+    navigator.serviceWorker.register("service-worker.js?v=7").catch((error) => console.warn("Service worker failed", error));
   });
 }
 
