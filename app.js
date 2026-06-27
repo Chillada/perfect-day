@@ -29,6 +29,7 @@ let syncSession = null;
 let syncStatus = "Sign in to sync";
 let cloudSaveTimer = 0;
 let applyingCloudState = false;
+let activeAudio = null;
 
 const icons = {
   today: '<svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3.5 9.5h17M6 5h12a2.5 2.5 0 0 1 2.5 2.5V18A2.5 2.5 0 0 1 18 20.5H6A2.5 2.5 0 0 1 3.5 18V7.5A2.5 2.5 0 0 1 6 5Z"/><path d="m8.5 14 2.1 2.1 4.9-5.2"/></svg>',
@@ -280,7 +281,7 @@ function render() {
 function brandMarkup() {
   return `
     <div class="brand">
-      <img src="https://github.com/user-attachments/assets/bd74692f-1966-4451-85d9-9a1f41ba82a3" alt="" />
+      <img src="icons/perfect-day-logo.svg" alt="" />
       <div>
         <strong>Perfect Day</strong>
         <span>Private habit tracker</span>
@@ -1088,12 +1089,10 @@ function triggerCelebration() {
   `;
   document.body.append(layer);
 
-  const audio = new Audio(PERFECT_DAY_TRACK.previewUrl);
-  audio.volume = 0.7;
-  audio.play().catch(() => {});
+  const audio = playPreview(PERFECT_DAY_TRACK.previewUrl);
 
   const close = () => {
-    audio.pause();
+    if (activeAudio === audio) stopActiveAudio();
     layer.remove();
     window.setTimeout(() => canvas.remove(), 400);
   };
@@ -1185,10 +1184,25 @@ function isWalkingHabit(habit) {
 }
 
 function playPreview(url) {
-  if (!url) return;
+  if (!url) return null;
+  stopActiveAudio();
   const audio = new Audio(url);
   audio.volume = 0.7;
-  audio.play().catch(() => {});
+  activeAudio = audio;
+  audio.addEventListener("ended", () => {
+    if (activeAudio === audio) activeAudio = null;
+  });
+  audio.play().catch(() => {
+    if (activeAudio === audio) activeAudio = null;
+  });
+  return audio;
+}
+
+function stopActiveAudio() {
+  if (!activeAudio) return;
+  activeAudio.pause();
+  activeAudio.currentTime = 0;
+  activeAudio = null;
 }
 
 function resizeHabitImage(file) {
