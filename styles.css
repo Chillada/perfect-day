@@ -237,16 +237,28 @@ h2 {
 }
 
 .score-ring .score-yin-yang {
-  color: rgba(255, 255, 255, 0.62);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(3.4rem, 10vw, 5.2rem);
-  line-height: 1;
-  transition: color 300ms ease, filter 300ms ease;
+  position: relative;
+  width: 68%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 50%;
+  opacity: 0.72;
+  filter: saturate(0.72);
+  transition: opacity 300ms ease, filter 300ms ease;
+}
+
+.score-ring .score-yin-yang img {
+  position: absolute;
+  width: 193%;
+  max-width: none;
+  left: -46%;
+  top: -15%;
 }
 
 .score-ring.perfect .score-yin-yang {
-  color: #fff8df;
+  opacity: 1;
   filter:
+    saturate(1)
     drop-shadow(0 0 5px rgba(243, 201, 108, 0.95))
     drop-shadow(0 0 14px rgba(243, 201, 108, 0.76));
 }
