@@ -497,6 +497,62 @@ h2 {
   gap: 10px;
 }
 
+.sync-panel {
+  margin-bottom: 18px;
+}
+
+.sync-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.sync-form .field {
+  margin-top: 0;
+}
+
+.sync-form .primary-action {
+  min-height: 46px;
+}
+
+.sync-note,
+.sync-account p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.sync-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.sync-account p {
+  margin-top: 4px;
+}
+
+.sync-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.sync-indicator::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.sync-indicator.online::before {
+  background: var(--sage);
+  box-shadow: 0 0 0 4px rgba(116, 143, 128, 0.14);
+}
+
 .settings-row {
   min-height: 72px;
   display: grid;
@@ -770,6 +826,15 @@ h2 {
 
   .split-fields {
     grid-template-columns: 1fr;
+  }
+
+  .sync-form {
+    grid-template-columns: 1fr;
+  }
+
+  .sync-account {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .bottom-nav {
