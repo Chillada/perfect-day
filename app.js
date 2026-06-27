@@ -1150,7 +1150,7 @@ function triggerCelebration() {
       <h2 id="celebration-title">A Perfect Day</h2>
       <div class="celebration-stats">
         <p><strong>Perfect Day number ${perfectDays}</strong></p>
-        <p>Current Streak ${streak} ${streak === 1 ? "Day" : "Days"}</p>
+        <p>Current Streak ${streak} Days</p>
       </div>
       <div class="celebration-actions">
         <button class="secondary-action" data-close-celebration>Close</button>
