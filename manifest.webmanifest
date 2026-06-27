@@ -1,0 +1,17 @@
+{
+  "name": "Perfect Day",
+  "short_name": "Perfect Day",
+  "description": "A private daily and weekly habit tracker.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f7f3ec",
+  "theme_color": "#f7f3ec",
+  "icons": [
+    {
+      "src": "icons/perfect-day.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
