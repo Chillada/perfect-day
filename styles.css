@@ -156,6 +156,13 @@ svg {
   white-space: nowrap;
 }
 
+.today-score-pill {
+  margin-left: auto;
+  border-color: rgba(69, 166, 107, 0.32);
+  background: rgba(255, 255, 255, 0.8);
+  font-weight: 800;
+}
+
 .hero-band,
 .section-heading {
   display: flex;
@@ -537,6 +544,53 @@ h2 {
   margin-bottom: 18px;
 }
 
+.streak-feature {
+  min-height: 190px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+  padding: clamp(24px, 5vw, 42px);
+  border-radius: var(--radius);
+  background: var(--sage-dark);
+  box-shadow: var(--shadow);
+  color: #fff;
+}
+
+.streak-feature div {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: 12px;
+}
+
+.streak-feature span {
+  grid-column: 1 / -1;
+  color: var(--gold);
+  font-weight: 800;
+}
+
+.streak-feature strong {
+  font-size: clamp(4.5rem, 13vw, 8rem);
+  line-height: 0.9;
+}
+
+.streak-feature small {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 1rem;
+}
+
+.streak-feature .streak-fire {
+  color: inherit;
+  font-size: clamp(4rem, 12vw, 7rem);
+  line-height: 1;
+}
+
+.secondary-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .stat-tile {
   min-height: 132px;
   padding: 18px;
@@ -551,6 +605,95 @@ h2 {
 
 .stat-tile strong {
   font-size: 2.3rem;
+}
+
+.month-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.calendar-weekday {
+  padding-bottom: 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.calendar-blank {
+  min-height: 52px;
+}
+
+.calendar-day {
+  min-height: 58px;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  padding: 7px 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.calendar-day i,
+.calendar-legend i {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.calendar-day.missed i,
+.calendar-legend i.missed {
+  background: var(--coral);
+}
+
+.calendar-day.mostly {
+  background: rgba(255, 209, 102, 0.2);
+  border-color: rgba(216, 173, 59, 0.62);
+}
+
+.calendar-day.mostly i,
+.calendar-legend i.mostly {
+  background: var(--gold);
+}
+
+.calendar-day.perfect {
+  background: rgba(139, 212, 80, 0.2);
+  border-color: rgba(69, 166, 107, 0.68);
+}
+
+.calendar-day.perfect i,
+.calendar-legend i.perfect {
+  background: var(--sage);
+}
+
+.calendar-day:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(18, 59, 45, 0.12);
+}
+
+.calendar-day.future {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .primary-action,
@@ -906,6 +1049,13 @@ h2 {
 
   .date-pill {
     display: none;
+  }
+
+  .today-score-pill {
+    min-height: 34px;
+    display: inline-flex;
+    padding: 0 10px;
+    font-size: 0.74rem;
   }
 
   .hero-band,
