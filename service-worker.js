@@ -1,4 +1,4 @@
-const CACHE_NAME = "perfect-day-v16";
+const CACHE_NAME = "perfect-day-v17";
 const ASSETS = [
   "./",
   "./index.html",
