@@ -2,10 +2,6 @@ const STORAGE_KEY = "perfect-day-state-v1";
 const PERFECT_DAY_TRACK = {
   previewUrl: "https://p.scdn.co/mp3-preview/15b6a2fb249d2fbba4f2f5aea63a2979392a228e.mp3"
 };
-const HABIT_TRACKS = {
-  sauna: "https://p.scdn.co/mp3-preview/556c25e5364d689df48965702632cfa8c5053baa.mp3",
-  walking: "https://p.scdn.co/mp3-preview/d65a71bce3857d4221fd2d81ff03cc4e7f3a025e.mp3"
-};
 const PERIOD_FREQUENCIES = ["weekly", "monthly", "halfyear", "yearly"];
 const SYNC_CONFIG = {
   url: "https://hwjyupnbybekckearloz.supabase.co",
@@ -183,12 +179,19 @@ function getValue(dateKey, habitId) {
 }
 
 function setValue(dateKey, habitId, value) {
+  const habit = findHabit(habitId);
   const wasPerfect = isPerfectDay(dateKey);
+  const wasComplete = habit ? isHabitComplete(habit, periodDates(habit.frequency, dateKey)) : false;
   entryFor(dateKey)[habitId] = value;
   saveState();
   const becamePerfect = !wasPerfect && isPerfectDay(dateKey);
+  const becameComplete = habit && !wasComplete && isHabitComplete(habit, periodDates(habit.frequency, dateKey));
   render();
-  if (becamePerfect && dateKey === todayKey()) triggerCelebration();
+  if (becamePerfect && dateKey === todayKey()) {
+    triggerCelebration();
+  } else if (becameComplete && dateKey === todayKey()) {
+    playTaskCompletionSound();
+  }
 }
 
 function isHabitComplete(habit, dateKeys) {
@@ -776,7 +779,7 @@ function bindView() {
         if (element.checked) entryFor(todayKey())[element.dataset.habit] = 1;
         saveState();
         render();
-        if (!wasComplete && element.checked && isSaunaHabit(habit)) playPreview(HABIT_TRACKS.sauna);
+        if (!wasComplete && element.checked) playTaskCompletionSound();
       });
     }
 
@@ -789,7 +792,7 @@ function bindView() {
         saveState();
         if (habit) {
           const complete = isHabitComplete(habit, periodDates(habit.frequency));
-          if (!wasComplete && complete && isWalkingHabit(habit)) playPreview(HABIT_TRACKS.walking);
+          if (!wasComplete && complete) playTaskCompletionSound();
           wasComplete = complete;
         }
       };
@@ -1330,16 +1333,6 @@ function runFireworks(canvas) {
   window.requestAnimationFrame(animate);
 }
 
-function isSaunaHabit(habit) {
-  return Boolean(habit && (habit.id === "sauna" || habit.name.toLowerCase().includes("sauna")));
-}
-
-function isWalkingHabit(habit) {
-  if (!habit) return false;
-  const text = `${habit.name} ${habit.unit || ""}`.toLowerCase();
-  return habit.id === "steps" || text.includes("step") || text.includes("walk");
-}
-
 function playPreview(url) {
   if (!url) return null;
   stopActiveAudio();
@@ -1362,10 +1355,66 @@ function playPreview(url) {
   return audio;
 }
 
+function playTaskCompletionSound() {
+  stopActiveAudio();
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return null;
+
+  const context = new AudioContextClass();
+  const master = context.createGain();
+  const startedAt = context.currentTime;
+  const notes = [
+    [523.25, 0],
+    [659.25, 0.09],
+    [783.99, 0.18],
+    [1046.5, 0.29]
+  ];
+
+  master.gain.setValueAtTime(0.0001, startedAt);
+  master.gain.exponentialRampToValueAtTime(0.18, startedAt + 0.02);
+  master.gain.setValueAtTime(0.18, startedAt + 0.34);
+  master.gain.exponentialRampToValueAtTime(0.0001, startedAt + 0.58);
+  master.connect(context.destination);
+
+  notes.forEach(([frequency, offset], index) => {
+    const oscillator = context.createOscillator();
+    const noteGain = context.createGain();
+    oscillator.type = index === notes.length - 1 ? "sine" : "square";
+    oscillator.frequency.setValueAtTime(frequency, startedAt + offset);
+    noteGain.gain.setValueAtTime(index === notes.length - 1 ? 0.8 : 0.42, startedAt + offset);
+    oscillator.connect(noteGain);
+    noteGain.connect(master);
+    oscillator.start(startedAt + offset);
+    oscillator.stop(startedAt + offset + (index === notes.length - 1 ? 0.29 : 0.12));
+  });
+
+  let finishTimer = 0;
+  const sound = {
+    stop() {
+      window.clearTimeout(finishTimer);
+      context.close().catch(() => {});
+    }
+  };
+  activeAudio = sound;
+  showAudioStopControl();
+  finishTimer = window.setTimeout(() => {
+    if (activeAudio === sound) {
+      activeAudio = null;
+      hideAudioStopControl();
+    }
+    context.close().catch(() => {});
+  }, 650);
+  return sound;
+}
+
 function stopActiveAudio() {
   if (!activeAudio) return;
-  activeAudio.pause();
-  activeAudio.currentTime = 0;
+  if (typeof activeAudio.stop === "function") {
+    activeAudio.stop();
+  } else {
+    activeAudio.pause();
+    activeAudio.currentTime = 0;
+  }
   activeAudio = null;
   hideAudioStopControl();
 }
