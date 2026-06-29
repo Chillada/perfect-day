@@ -487,8 +487,7 @@ function periodHabitMarkup(habit, dateKey) {
         ${habitImageMarkup(habit)}
         <strong>${escapeHtml(habit.name)}</strong>
         </div>
-        <strong class="period-total">${formatNumber(total)} / ${formatNumber(habit.goal)} ${escapeHtml(habit.unit || "")}</strong>
-        <span class="period-percent">${percent}%</span>
+        <strong class="period-total">${formatNumber(total)} / ${formatNumber(habit.goal)} ${escapeHtml(habit.unit || "")} <span>${percent}%</span></strong>
         <input
           type="number"
           inputmode="numeric"
