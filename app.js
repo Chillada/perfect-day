@@ -7,6 +7,7 @@ const SAUNA_TRACK = {
   previewUrl: "https://p.scdn.co/mp3-preview/556c25e5364d689df48965702632cfa8c5053baa.mp3"
 };
 const PERIOD_FREQUENCIES = ["weekly", "monthly", "halfyear", "yearly"];
+const HABIT_COLORS = ["#45a66b", "#e6b85c", "#ff776d", "#4f8fbf", "#9a72b5", "#28a7a1"];
 const SYNC_CONFIG = {
   url: "https://hwjyupnbybekckearloz.supabase.co",
   key: "sb_publishable_dtdIdtfFdTVYqkWGEVxVQA_XN2ZetBM",
@@ -404,9 +405,34 @@ function todayView() {
 }
 
 function dailyHabitMarkup(habit, dateKey) {
+  const complete = isHabitComplete(habit, [dateKey]);
+  const color = habitColor(habit);
+  if (habit.type === "number") {
+    return `
+      <div class="habit-row daily-number-row ${complete ? "done" : ""}" style="--habit-color:${color}">
+        ${habitImageMarkup(habit)}
+        <div class="daily-number-copy">
+          <strong>${escapeHtml(habit.name)}</strong>
+          <span>Target ${formatNumber(habit.goal)} ${escapeHtml(habit.unit || "")}</span>
+        </div>
+        <input
+          type="number"
+          inputmode="numeric"
+          min="0"
+          step="${numberStep(habit)}"
+          aria-label="${escapeAttr(`${habit.name} today`)}"
+          data-action="number-entry"
+          data-date="${dateKey}"
+          data-habit="${habit.id}"
+          value="${Number(getValue(dateKey, habit.id) || 0)}"
+        />
+      </div>
+    `;
+  }
+
   const checked = Boolean(getValue(dateKey, habit.id));
   return `
-    <label class="habit-row ${checked ? "done" : ""}">
+    <label class="habit-row ${checked ? "done" : ""}" style="--habit-color:${color}">
       <input type="checkbox" data-action="toggle-check" data-date="${dateKey}" data-habit="${habit.id}" ${checked ? "checked" : ""} />
       <span class="check-ui"></span>
       ${habitImageMarkup(habit)}
@@ -442,7 +468,7 @@ function periodHabitMarkup(habit, dateKey) {
     const doneDate = dates.find((key) => Boolean(getValue(key, habit.id))) || dateKey;
     const checked = isHabitComplete(habit, dates);
     return `
-      <label class="habit-row compact ${checked ? "done" : ""}">
+      <label class="habit-row compact ${checked ? "done" : ""}" style="--habit-color:${habitColor(habit)}">
         <input type="checkbox" data-action="period-check" data-date="${doneDate}" data-frequency="${habit.frequency}" data-habit="${habit.id}" ${checked ? "checked" : ""} />
         <span class="check-ui"></span>
         ${habitImageMarkup(habit)}
@@ -455,24 +481,39 @@ function periodHabitMarkup(habit, dateKey) {
   const percent = Math.min(100, Math.round((total / Number(habit.goal || 1)) * 100));
 
   return `
-    <div class="period-number">
-      <div class="period-number-title">
+    <div class="period-number ${percent >= 100 ? "done" : ""}" style="--habit-color:${habitColor(habit)}">
+      <div class="period-number-line">
+        <div class="period-number-title">
         ${habitImageMarkup(habit)}
         <strong>${escapeHtml(habit.name)}</strong>
-      </div>
-      <div class="meter-block">
-        <div class="meter-copy">
-          <strong>${formatNumber(total)} / ${formatNumber(habit.goal)} ${escapeHtml(habit.unit || "")}</strong>
-          <span>${percent}%</span>
         </div>
-        <div class="meter"><span style="width:${percent}%"></span></div>
+        <strong class="period-total">${formatNumber(total)} / ${formatNumber(habit.goal)} ${escapeHtml(habit.unit || "")}</strong>
+        <span class="period-percent">${percent}%</span>
+        <input
+          type="number"
+          inputmode="numeric"
+          min="0"
+          step="${numberStep(habit)}"
+          aria-label="${escapeAttr(`${habit.name} today`)}"
+          data-action="number-entry"
+          data-date="${dateKey}"
+          data-habit="${habit.id}"
+          value="${Number(getValue(dateKey, habit.id) || 0)}"
+        />
       </div>
-      <label class="field inline-entry">
-        <span>Today</span>
-        <input type="number" inputmode="numeric" min="0" step="100" data-action="number-entry" data-date="${dateKey}" data-habit="${habit.id}" value="${Number(getValue(dateKey, habit.id) || 0)}" />
-      </label>
+      <div class="meter"><span style="width:${percent}%"></span></div>
     </div>
   `;
+}
+
+function habitColor(habit) {
+  if (habit?.color && /^#[0-9a-f]{6}$/i.test(habit.color)) return habit.color;
+  const index = Math.max(0, orderedAllHabits().findIndex((item) => item.id === habit?.id));
+  return HABIT_COLORS[index % HABIT_COLORS.length];
+}
+
+function numberStep(habit) {
+  return `${habit?.name || ""} ${habit?.unit || ""}`.toLowerCase().includes("step") ? 100 : 1;
 }
 
 function habitImageMarkup(habit) {
@@ -520,7 +561,7 @@ function weeklyHabitMarkup(habit, dates) {
     const doneDate = dates.find((dateKey) => Boolean(getValue(dateKey, habit.id))) || todayKey();
     const checked = dates.some((dateKey) => Boolean(getValue(dateKey, habit.id)));
     return `
-      <label class="habit-row ${checked ? "done" : ""}">
+      <label class="habit-row ${checked ? "done" : ""}" style="--habit-color:${habitColor(habit)}">
         <input type="checkbox" data-action="weekly-check" data-date="${doneDate}" data-habit="${habit.id}" ${checked ? "checked" : ""} />
         <span class="check-ui"></span>
         <span>${escapeHtml(habit.name)}</span>
@@ -545,7 +586,7 @@ function weeklyHabitMarkup(habit, dates) {
             (dateKey) => `
               <label class="mini-field">
                 <span>${dateFromKey(dateKey).toLocaleDateString(undefined, { weekday: "short" })}</span>
-                <input type="number" inputmode="numeric" min="0" step="100" data-action="number-entry" data-date="${dateKey}" data-habit="${habit.id}" value="${Number(getValue(dateKey, habit.id) || 0)}" />
+                <input type="number" inputmode="numeric" min="0" step="${numberStep(habit)}" data-action="number-entry" data-date="${dateKey}" data-habit="${habit.id}" value="${Number(getValue(dateKey, habit.id) || 0)}" />
               </label>
             `
           )
@@ -682,13 +723,24 @@ function settingsView() {
       </div>
     </section>
 
+    <section class="panel start-date-panel">
+      <div>
+        <h2>Tracking start date</h2>
+        <p>Days before this date are skipped and do not affect your stats.</p>
+      </div>
+      <label class="field">
+        <span>Start date</span>
+        <input type="date" max="${todayKey()}" value="${escapeAttr(state.createdAt)}" data-action="start-date" />
+      </label>
+    </section>
+
     <section class="data-actions">
-      <button class="secondary-action" data-action="export-data">${icons.download}<span>Export data</span></button>
+      <button class="secondary-action" data-action="export-data">${icons.download}<span>Export everything</span></button>
       <label class="secondary-action file-action">
         <input type="file" accept="application/json" data-action="import-data" />
-        <span>Import data</span>
+        <span>Import backup</span>
       </label>
-      <button class="danger-action" data-action="reset-data">${icons.reset}<span>Reset</span></button>
+      <button class="danger-action reset-action" data-action="reset-data">${icons.reset}<span>Reset everything</span></button>
     </section>
   `;
 }
@@ -828,7 +880,14 @@ function bindView() {
     if (action === "move-down") element.addEventListener("click", () => moveHabit(element.dataset.habit, 1));
     if (action === "export-data") element.addEventListener("click", exportData);
     if (action === "import-data") element.addEventListener("change", importData);
-    if (action === "reset-data") element.addEventListener("click", resetData);
+    if (action === "reset-data") element.addEventListener("click", openResetDialog);
+    if (action === "start-date") {
+      element.addEventListener("change", () => {
+        state.createdAt = element.value && element.value <= todayKey() ? element.value : todayKey();
+        saveState();
+        render();
+      });
+    }
     if (action === "sync-sign-out") element.addEventListener("click", signOutOfSync);
     if (action === "sync-setup-link") element.addEventListener("click", sendSyncSetupLink);
     if (action === "toggle-history-day") element.addEventListener("click", () => toggleHistoryDay(element.dataset.date));
@@ -933,6 +992,10 @@ function openHabitDialog(habit = null) {
           <input name="unit" maxlength="18" value="${escapeAttr(habit?.unit || "")}" />
         </label>
       </div>
+      <label class="field color-field">
+        <span>Target colour</span>
+        <input name="color" type="color" value="${escapeAttr(habitColor(habit))}" />
+      </label>
       <label class="field image-field">
         <span>Image</span>
         <input name="image" type="file" accept="image/*" />
@@ -990,7 +1053,8 @@ function openHabitDialog(habit = null) {
       unit: form.get("unit").toString().trim(),
       enabled: habit?.enabled ?? true,
       image: habit?.image || "",
-      sound: form.get("sound").toString()
+      sound: form.get("sound").toString(),
+      color: form.get("color").toString()
     };
 
     if (form.get("removeImage")) payload.image = "";
@@ -1036,7 +1100,14 @@ function openHabitDialog(habit = null) {
 }
 
 function exportData() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const backup = {
+    format: "perfect-day-backup",
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    state,
+    localSounds
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -1052,12 +1123,18 @@ function importData(event) {
   reader.onload = () => {
     try {
       const parsed = JSON.parse(reader.result);
-      if (!parsed || !Array.isArray(parsed.habits) || typeof parsed.entries !== "object") {
+      const importedState = parsed?.format === "perfect-day-backup" ? parsed.state : parsed;
+      if (!importedState || !Array.isArray(importedState.habits) || typeof importedState.entries !== "object") {
         throw new Error("Invalid Perfect Day file");
       }
-      state.habits = parsed.habits;
-      state.entries = parsed.entries || {};
-      state.createdAt = parsed.createdAt || todayKey();
+      state.habits = importedState.habits;
+      state.entries = importedState.entries || {};
+      state.createdAt = importedState.createdAt || todayKey();
+      Object.keys(localSounds).forEach((id) => delete localSounds[id]);
+      if (parsed?.format === "perfect-day-backup" && parsed.localSounds && typeof parsed.localSounds === "object") {
+        Object.assign(localSounds, parsed.localSounds);
+      }
+      saveLocalSounds();
       saveState();
       render();
     } catch (error) {
@@ -1067,9 +1144,29 @@ function importData(event) {
   reader.readAsText(file);
 }
 
+function openResetDialog() {
+  const dialog = document.createElement("dialog");
+  dialog.className = "confirm-dialog";
+  dialog.innerHTML = `
+    <form method="dialog" class="dialog-form">
+      <p class="eyebrow">Permanent action</p>
+      <h2>Are you sure?</h2>
+      <p>This removes every target, entry, image and custom sound from this device. Export a backup first if you may want it later.</p>
+      <menu class="dialog-actions">
+        <button value="cancel" class="secondary-action">Keep my data</button>
+        <button value="confirm" class="danger-action">Yes, reset everything</button>
+      </menu>
+    </form>
+  `;
+  document.body.append(dialog);
+  dialog.showModal();
+  dialog.addEventListener("close", () => {
+    if (dialog.returnValue === "confirm") resetData();
+    dialog.remove();
+  });
+}
+
 function resetData() {
-  const confirmed = window.confirm("Reset all Perfect Day targets and history on this device?");
-  if (!confirmed) return;
   localStorage.removeItem(STORAGE_KEY);
   Object.keys(localSounds).forEach((id) => delete localSounds[id]);
   localStorage.removeItem(SOUND_STORAGE_KEY);
