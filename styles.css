@@ -321,7 +321,7 @@ h2 {
 .period-number-line {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(110px, 1fr) auto auto 86px;
+  grid-template-columns: minmax(0, 1fr) auto 76px;
   align-items: center;
   gap: 10px;
 }
@@ -345,9 +345,10 @@ h2 {
   white-space: nowrap;
 }
 
-.period-percent {
+.period-total span {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
+  font-weight: 600;
 }
 
 .period-number-line > input,
@@ -1322,16 +1323,16 @@ h2 {
   }
 
   .period-number-line {
-    grid-template-columns: minmax(0, 1fr) auto 76px;
+    grid-template-columns: minmax(0, 1fr) auto 68px;
     gap: 7px;
-  }
-
-  .period-percent {
-    display: none;
   }
 
   .period-total {
     font-size: 0.74rem;
+  }
+
+  .period-total span {
+    display: none;
   }
 
   .period-number-title .habit-image {
