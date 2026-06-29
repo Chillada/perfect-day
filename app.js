@@ -1491,8 +1491,11 @@ function runFireworks(canvas) {
 function playPreview(url) {
   if (!url) return null;
   stopActiveAudio();
-  const audio = new Audio(url);
+  const objectUrl = url.startsWith("data:") ? soundDataUrlToObjectUrl(url) : "";
+  const audio = new Audio(objectUrl || url);
   audio.volume = 0.7;
+  audio.preload = "auto";
+  audio.dataset.objectUrl = objectUrl;
   activeAudio = audio;
   showAudioStopControl();
   audio.addEventListener("ended", () => {
@@ -1500,14 +1503,36 @@ function playPreview(url) {
       activeAudio = null;
       hideAudioStopControl();
     }
+    releaseAudioObjectUrl(audio);
   });
   audio.play().catch(() => {
     if (activeAudio === audio) {
       activeAudio = null;
       hideAudioStopControl();
     }
+    releaseAudioObjectUrl(audio);
   });
   return audio;
+}
+
+function soundDataUrlToObjectUrl(dataUrl) {
+  try {
+    const [metadata, encoded] = dataUrl.split(",", 2);
+    const suppliedType = metadata.match(/^data:([^;,]+)/)?.[1] || "audio/mpeg";
+    const mimeType = suppliedType === "audio/x-m4a" ? "audio/mp4" : suppliedType;
+    const binary = metadata.includes(";base64") ? window.atob(encoded) : decodeURIComponent(encoded);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+  } catch {
+    return "";
+  }
+}
+
+function releaseAudioObjectUrl(audio) {
+  const objectUrl = audio?.dataset?.objectUrl;
+  if (!objectUrl) return;
+  URL.revokeObjectURL(objectUrl);
+  audio.dataset.objectUrl = "";
 }
 
 function habitSound(habit) {
@@ -1599,6 +1624,7 @@ function stopActiveAudio() {
   } else {
     activeAudio.pause();
     activeAudio.currentTime = 0;
+    releaseAudioObjectUrl(activeAudio);
   }
   activeAudio = null;
   hideAudioStopControl();
