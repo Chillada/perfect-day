@@ -1,4 +1,5 @@
 const STORAGE_KEY = "perfect-day-state-v1";
+const SOUND_STORAGE_KEY = "perfect-day-local-sounds-v1";
 const PERFECT_DAY_TRACK = {
   previewUrl: "https://p.scdn.co/mp3-preview/15b6a2fb249d2fbba4f2f5aea63a2979392a228e.mp3"
 };
@@ -22,6 +23,7 @@ const defaultHabits = [
 ];
 
 const state = loadState();
+const localSounds = loadLocalSounds();
 let activeView = "today";
 let syncClient = null;
 let syncSession = null;
@@ -62,6 +64,18 @@ function loadState() {
     entries: {},
     createdAt: todayKey()
   };
+}
+
+function loadLocalSounds() {
+  try {
+    return JSON.parse(localStorage.getItem(SOUND_STORAGE_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalSounds() {
+  localStorage.setItem(SOUND_STORAGE_KEY, JSON.stringify(localSounds));
 }
 
 function saveState() {
@@ -182,12 +196,19 @@ function getValue(dateKey, habitId) {
 }
 
 function setValue(dateKey, habitId, value) {
+  const habit = findHabit(habitId);
   const wasPerfect = isPerfectDay(dateKey);
+  const wasComplete = habit ? isHabitComplete(habit, periodDates(habit.frequency, dateKey)) : false;
   entryFor(dateKey)[habitId] = value;
   saveState();
   const becamePerfect = !wasPerfect && isPerfectDay(dateKey);
+  const becameComplete = habit && !wasComplete && isHabitComplete(habit, periodDates(habit.frequency, dateKey));
   render();
-  if (becamePerfect && dateKey === todayKey()) triggerCelebration();
+  if (becamePerfect && dateKey === todayKey()) {
+    triggerCelebration();
+  } else if (becameComplete && dateKey === todayKey()) {
+    playHabitSound(habit);
+  }
 }
 
 function isHabitComplete(habit, dateKeys) {
@@ -735,7 +756,7 @@ function settingsHabitMarkup(habit) {
           ${habitImageMarkup(habit)}
           <span>${escapeHtml(habit.name)}</span>
         </label>
-        <span>${frequencyLabel(habit.frequency)} · ${habit.type === "check" ? "checkbox" : `${formatNumber(habit.goal)} ${escapeHtml(habit.unit || "")}`}</span>
+        <span>${frequencyLabel(habit.frequency)} · ${habit.type === "check" ? "checkbox" : `${formatNumber(habit.goal)} ${escapeHtml(habit.unit || "")}`} · ${soundLabel(habit)}</span>
       </div>
       <div class="settings-controls">
         <button data-action="move-up" data-habit="${habit.id}" aria-label="Move ${escapeAttr(habit.name)} up" title="Move up">${icons.up}</button>
@@ -775,15 +796,22 @@ function bindView() {
         if (element.checked) entryFor(todayKey())[element.dataset.habit] = 1;
         saveState();
         render();
-        if (!wasComplete && element.checked && isSaunaHabit(habit)) playPreview(SAUNA_TRACK.previewUrl);
+        if (!wasComplete && element.checked) playHabitSound(habit);
       });
     }
 
     if (action === "number-entry") {
+      const habit = findHabit(element.dataset.habit);
+      let wasComplete = habit ? isHabitComplete(habit, periodDates(habit.frequency)) : false;
       const saveNumber = () => {
         const value = Math.max(0, Number(element.value || 0));
         entryFor(element.dataset.date)[element.dataset.habit] = value;
         saveState();
+        if (habit) {
+          const complete = isHabitComplete(habit, periodDates(habit.frequency));
+          if (!wasComplete && complete) playHabitSound(habit);
+          wasComplete = complete;
+        }
       };
       element.addEventListener("input", saveNumber);
       element.addEventListener("change", () => {
@@ -855,12 +883,15 @@ function deleteHabit(id) {
 
   state.habits = state.habits.filter((item) => item.id !== id);
   Object.values(state.entries).forEach((entry) => delete entry[id]);
+  delete localSounds[id];
+  saveLocalSounds();
   saveState();
   render();
 }
 
 function openHabitDialog(habit = null) {
   const isEdit = Boolean(habit);
+  const selectedSound = habitSound(habit);
   const dialog = document.createElement("dialog");
   dialog.className = "habit-dialog";
   dialog.innerHTML = `
@@ -911,6 +942,22 @@ function openHabitDialog(habit = null) {
           ? `<div class="image-preview"><img src="${escapeAttr(habit.image)}" alt="" /><label><input name="removeImage" type="checkbox" /> Remove image</label></div>`
           : ""
       }
+      <div class="split-fields sound-fields">
+        <label class="field">
+          <span>Completion sound</span>
+          <select name="sound">
+            <option value="none" ${selectedSound === "none" ? "selected" : ""}>Silent</option>
+            <option value="chime" ${selectedSound === "chime" ? "selected" : ""}>Gentle chime</option>
+            <option value="sauna" ${selectedSound === "sauna" ? "selected" : ""}>Sauna song</option>
+            <option value="custom" ${selectedSound === "custom" ? "selected" : ""}>Custom audio</option>
+          </select>
+        </label>
+        <label class="field custom-sound-field" ${selectedSound === "custom" ? "" : "hidden"}>
+          <span>Audio file</span>
+          <input name="soundFile" type="file" accept="audio/*" />
+          ${habit && localSounds[habit.id] ? `<small>Custom audio saved on this device.</small>` : ""}
+        </label>
+      </div>
       <menu class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
         <button value="save" class="primary-action">${isEdit ? "Save" : "Add"}</button>
@@ -920,6 +967,11 @@ function openHabitDialog(habit = null) {
 
   document.body.append(dialog);
   dialog.showModal();
+  const soundSelect = dialog.querySelector('[name="sound"]');
+  const customSoundField = dialog.querySelector(".custom-sound-field");
+  soundSelect.addEventListener("change", () => {
+    customSoundField.hidden = soundSelect.value !== "custom";
+  });
   dialog.addEventListener("close", () => dialog.remove());
   dialog.querySelector("form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -937,7 +989,8 @@ function openHabitDialog(habit = null) {
       goal: Math.max(1, Number(form.get("goal") || 1)),
       unit: form.get("unit").toString().trim(),
       enabled: habit?.enabled ?? true,
-      image: habit?.image || ""
+      image: habit?.image || "",
+      sound: form.get("sound").toString()
     };
 
     if (form.get("removeImage")) payload.image = "";
@@ -951,12 +1004,27 @@ function openHabitDialog(habit = null) {
       payload.unit = "";
     }
 
+    const habitId = habit?.id || (window.crypto?.randomUUID ? window.crypto.randomUUID() : `habit-${Date.now()}`);
+    const soundFile = form.get("soundFile");
+    if (payload.sound === "custom" && soundFile instanceof File && soundFile.size) {
+      try {
+        localSounds[habitId] = await readSoundFile(soundFile);
+        saveLocalSounds();
+      } catch (error) {
+        window.alert(error.message);
+        return;
+      }
+    } else if (payload.sound !== "custom") {
+      delete localSounds[habitId];
+      saveLocalSounds();
+    }
+
     if (isEdit) {
       Object.assign(habit, payload);
     } else {
       state.habits.push({
         ...payload,
-        id: window.crypto?.randomUUID ? window.crypto.randomUUID() : `habit-${Date.now()}`,
+        id: habitId,
         order: Math.max(0, ...state.habits.map((item) => item.order)) + 1
       });
     }
@@ -1003,6 +1071,8 @@ function resetData() {
   const confirmed = window.confirm("Reset all Perfect Day targets and history on this device?");
   if (!confirmed) return;
   localStorage.removeItem(STORAGE_KEY);
+  Object.keys(localSounds).forEach((id) => delete localSounds[id]);
+  localStorage.removeItem(SOUND_STORAGE_KEY);
   Object.assign(state, {
     habits: typeof structuredClone === "function" ? structuredClone(defaultHabits) : JSON.parse(JSON.stringify(defaultHabits)),
     entries: {},
@@ -1344,8 +1414,86 @@ function playPreview(url) {
   return audio;
 }
 
+function habitSound(habit) {
+  if (!habit) return "none";
+  if (habit.sound) return habit.sound;
+  return isSaunaHabit(habit) ? "sauna" : "none";
+}
+
+function soundLabel(habit) {
+  const labels = {
+    none: "silent",
+    chime: "gentle chime",
+    sauna: "sauna song",
+    custom: localSounds[habit.id] ? "custom sound" : "custom sound unavailable"
+  };
+  return labels[habitSound(habit)] || "silent";
+}
+
+function playHabitSound(habit) {
+  const sound = habitSound(habit);
+  if (sound === "sauna") return playPreview(SAUNA_TRACK.previewUrl);
+  if (sound === "chime") return playCompletionChime();
+  if (sound === "custom") return playPreview(localSounds[habit.id]);
+  return null;
+}
+
+function playCompletionChime() {
+  stopActiveAudio();
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return null;
+
+  const context = new AudioContextClass();
+  const master = context.createGain();
+  const start = context.currentTime;
+  master.gain.setValueAtTime(0.0001, start);
+  master.gain.exponentialRampToValueAtTime(0.14, start + 0.02);
+  master.gain.exponentialRampToValueAtTime(0.0001, start + 0.48);
+  master.connect(context.destination);
+
+  [523.25, 659.25, 783.99].forEach((frequency, index) => {
+    const oscillator = context.createOscillator();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, start + index * 0.1);
+    oscillator.connect(master);
+    oscillator.start(start + index * 0.1);
+    oscillator.stop(start + index * 0.1 + 0.2);
+  });
+
+  let finishTimer = 0;
+  const sound = {
+    stop() {
+      window.clearTimeout(finishTimer);
+      context.close().catch(() => {});
+    }
+  };
+  activeAudio = sound;
+  showAudioStopControl();
+  finishTimer = window.setTimeout(() => {
+    if (activeAudio === sound) {
+      activeAudio = null;
+      hideAudioStopControl();
+    }
+    context.close().catch(() => {});
+  }, 550);
+  return sound;
+}
+
 function isSaunaHabit(habit) {
   return Boolean(habit && (habit.id === "sauna" || habit.name.toLowerCase().includes("sauna")));
+}
+
+function readSoundFile(file) {
+  return new Promise((resolve, reject) => {
+    if (file.size > 900 * 1024) {
+      reject(new Error("Please choose an audio clip smaller than 900 KB."));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read that audio file."));
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
 }
 
 function stopActiveAudio() {
