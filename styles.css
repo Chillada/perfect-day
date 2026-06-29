@@ -1029,6 +1029,15 @@ h2 {
   gap: 7px;
 }
 
+.custom-sound-field[hidden] {
+  display: none;
+}
+
+.custom-sound-field small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
