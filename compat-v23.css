@@ -22,7 +22,13 @@
 }
 
 .app-audio {
-  display: none;
+  position: fixed;
+  left: -2px;
+  bottom: -2px;
+  width: 1px;
+  height: 1px;
+  opacity: 0.001;
+  pointer-events: none;
 }
 
 @media (max-width: 860px) {
