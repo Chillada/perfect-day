@@ -1,0 +1,32 @@
+.secondary-stats {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.calendar-day.partial {
+  background: rgba(230, 184, 92, 0.16);
+  border-color: rgba(230, 184, 92, 0.7);
+}
+
+.calendar-legend i.partial {
+  background: var(--gold);
+}
+
+.calendar-day small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.calendar-day.perfect small {
+  color: var(--sage-dark);
+}
+
+.app-audio {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .secondary-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
