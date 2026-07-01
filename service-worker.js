@@ -1,9 +1,11 @@
-const CACHE_NAME = "perfect-day-v22";
+const CACHE_NAME = "perfect-day-v23";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
+  "./compat-v23.css",
   "./app.js",
+  "./compat-v23.js",
   "./manifest.webmanifest",
   "./icons/perfect-day-yin.svg"
 ];
