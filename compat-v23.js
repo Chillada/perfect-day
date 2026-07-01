@@ -34,8 +34,11 @@ playPreview = function (url) {
   audio.volume = 0.7;
   audio.preload = "auto";
   audio.playsInline = true;
+  audio.setAttribute("playsinline", "");
+  audio.setAttribute("webkit-playsinline", "");
   audio.className = "app-audio";
   document.body.append(audio);
+  audio.load();
   activeAudio = audio;
   showAudioStopControl();
 
